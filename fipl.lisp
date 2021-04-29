@@ -57,24 +57,21 @@
 (defun skip-ws (in &key (parser *parser*) (pos *pos*))
   (declare (ignore parser))
   
-  (let ((c (peekc in)))
-    (unless (and c (ws? c))
-      (return-from skip-ws)))
-
-  (tagbody
-   skip
-     (let ((c (read-char in nil)))
-       (when c
-         (when (ws? c)
-           (case c
-             (#\newline
-              (incf (pos-row pos))
-              (setf (pos-col pos) 1))
-             (otherwise
-              (incf (pos-col pos))))
-           (go skip))
-         (unread-char c in)
-	 t))))
+  (labels ((rec (found?)
+	     (let ((c (read-char in nil)))
+	       (when c
+		 (if (ws? c)
+		     (progn
+		       (case c
+			 (#\newline
+			  (incf (pos-row pos))
+			  (setf (pos-col pos) 1))
+			 (otherwise
+			  (incf (pos-col pos))))
+		       (rec t))
+		     (unread-char c in))))
+	     found?))
+    (rec nil)))
 
 (defun sep? (c)
   (or (ws? c) (char= c #\( #\))))

@@ -1,0 +1,23 @@
+* convert tagbodies to tail calls
+* add *parsers*
+** replaces parser handlers
+** extract init from new-parser
+* add *forms*
+** replaces parser forms
+* remove parser type
+** remove new-parser
+** add let-forms (in) macro
+* extract let-env from glob
+*** use in env-tests
+* add paren call parser
+** max one fn or macro per call
+*** call fn/macro with all args
+**** push values on stack
+** add , shortcut to push call/eval & parse rest separately
+* add integer parser
+* add recursive fib
+* add string parser
+
+defsub fib [n] (
+  if n < 2, n, (fib, n - 1) + (fib, n - 2)
+)

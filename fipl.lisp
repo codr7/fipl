@@ -143,12 +143,12 @@
     p))
 
 (defun parse (in &key (parser *parser*) (pos *pos*))
-  (tagbody
-   next
-     (when (find-if (lambda (h)
-		      (funcall h in :parser parser :pos pos))
-		    (handlers parser))
-       (go next))))
+  (labels ((rec ()
+	     (when (find-if (lambda (h)
+			      (funcall h in :parser parser :pos pos))
+			    (handlers parser))
+	       (rec))))
+    (rec)))
 
 (defun emit (forms)
   (dolist (frm forms) (emit-form frm)))

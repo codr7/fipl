@@ -118,21 +118,23 @@
   (let ((c (peekc in)))
     (unless (and c (alpha-char-p c))
       (return-from parse-id)))
-  
-  (let* ((start-pos (clone pos))
-	 (i 0)
-         (s (with-output-to-string (out)
-              (tagbody
-               next
-                 (let ((c (read-char in nil)))
-                   (when c
-                     (unless (sep? c)
-                       (incf (pos-col pos))
-                       (incf i)
-                       (write-char c out)
-                       (go next))
-                     (unread-char c in)))))))
-    (push (make-id-form :pos start-pos :id (kw s)) (forms parser))))
+
+  (labels ((rec (out)
+	     (let ((c (read-char in nil)))
+	       (when c
+		 (if (sep? c)
+		     (unread-char c in)
+		     (progn
+		       (incf (pos-col pos))
+		       (write-char c out)
+		       (rec out)))))))
+    
+    (let ((start-pos (clone pos))
+	  (s (with-output-to-string (out)
+	       (rec out))))
+      (push (make-id-form :pos start-pos :id (kw s)) (forms parser))))
+
+  t)
 
 (defun new-parser ()
   (let ((p (make-instance 'parser)))

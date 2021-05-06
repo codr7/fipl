@@ -1,9 +1,10 @@
-* extract let-env from special
-*** use in env-tests
 * add integer parser
 * add compile time bindings
 ** const propagate away calls on reference
-
+* add group parser
+* add dot parser
+** 1 +.2
 MAX: 10;
 
 fib: cp 1 > (1- cp fib swap 1- cp fib +) if;
+

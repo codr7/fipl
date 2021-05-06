@@ -4,7 +4,7 @@
 
 (in-package fipl)
 
-(defvar *env* (make-hash-table :test 'eq))
+(defvar *env*)
 (defvar *pos*)
 (defvar *forms*)
 (defvar *code*)
@@ -13,6 +13,17 @@
 (defmacro let-forms ((&optional in) &body body)
   `(let ((*forms* ,in))
      ,@body))
+
+(defmacro let-env ((&rest in) &body body)
+  (labels ((rec (in out)
+	     (if in
+		 (let ((k (pop in)) (v (pop in)))
+		   (rec in (cons `(setf (env ,k) ,v) out)))
+		 (nreverse out))))
+    
+    `(let ((*env* (make-hash-table :test 'eq)))
+       ,@(rec in nil)
+       ,@body)))
 
 (defmacro let-code ((forms) &body body)
   `(let ((*code* nil))
@@ -158,11 +169,11 @@
     (let-forms ()
       (with-input-from-string (in "foo")
 	(parse in))
-      (setf (env :foo) 42)
-      (let-code ((nreverse *forms*))
-	(let-stack ()
-	  (exec)
-	  (assert (= (pop *stack*) 42)))))))
+      (let-env (:foo 42)
+	(let-code ((nreverse *forms*))
+	  (let-stack ()
+	    (exec)
+	    (assert (= (pop *stack*) 42))))))))
 
 (defun tests ()
   (parse-tests)

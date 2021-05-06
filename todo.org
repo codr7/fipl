@@ -1,13 +1,9 @@
-* add *parsers*
-** replaces parser handlers
-** extract init from new-parser
-* add *forms*
-** replaces parser forms
-* remove parser type
-** remove new-parser
-** add let-forms (in) macro
-* extract let-env from glob
+* extract let-env from special
 *** use in env-tests
 * add integer parser
+* add compile time bindings
+** const propagate away calls on reference
+
+MAX: 10;
 
 fib: cp 1 > (1- cp fib swap 1- cp fib +) if;

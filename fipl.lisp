@@ -5,11 +5,14 @@
 (in-package fipl)
 
 (defvar *env* (make-hash-table :test 'eq))
-(defvar *form*)
-(defvar *parser*)
 (defvar *pos*)
+(defvar *forms*)
 (defvar *code*)
 (defvar *stack*)
+
+(defmacro let-forms ((&optional in) &body body)
+  `(let ((*forms* ,in))
+     ,@body))
 
 (defmacro let-code ((forms) &body body)
   `(let ((*code* nil))
@@ -40,10 +43,6 @@
 (defmethod clone ((src pos))
   (copy-structure src))
 
-(defclass parser ()
-  ((handlers :initform nil :initarg :handlers :accessor handlers)
-   (forms :initform nil :initarg :forms :accessor forms)))
-
 (defun ws? (c)
   (when (or (char= c #\space) (char= c #\tab) (char= c #\newline))
     c))
@@ -54,9 +53,7 @@
 (defun peekc (in)
   (peek-char nil in nil))
 
-(defun skip-ws (in &key (parser *parser*) (pos *pos*))
-  (declare (ignore parser))
-  
+(defun skip-ws (in &key (pos *pos*))
   (labels ((rec (found?)
 	     (let ((c (read-char in nil)))
 	       (when c
@@ -114,7 +111,7 @@
 		 (pos-source pos) (pos-row pos) (pos-col pos)
 		 (apply #'format nil msg args))))
 
-(defun parse-id (in &key (parser *parser*) (pos *pos*))
+(defun parse-id (in &key (pos *pos*))
   (let ((c (peekc in)))
     (unless (and c (alpha-char-p c))
       (return-from parse-id)))
@@ -132,21 +129,17 @@
     (let ((start-pos (clone pos))
 	  (s (with-output-to-string (out)
 	       (rec out))))
-      (push (make-id-form :pos start-pos :id (kw s)) (forms parser))))
+      (push (make-id-form :pos start-pos :id (kw s)) *forms*)))
 
   t)
 
-(defun new-parser ()
-  (let ((p (make-instance 'parser)))
-    (push #'parse-id (handlers p))
-    (push #'skip-ws (handlers p))
-    p))
+(defvar *parsers* (list #'skip-ws #'parse-id))
 
-(defun parse (in &key (parser *parser*) (pos *pos*))
+(defun parse (in &key (pos *pos*))
   (labels ((rec ()
 	     (when (find-if (lambda (h)
-			      (funcall h in :parser parser :pos pos))
-			    (handlers parser))
+			      (funcall h in :pos pos))
+			    *parsers*)
 	       (rec))))
     (rec)))
 
@@ -154,22 +147,22 @@
   (dolist (frm forms) (emit-form frm)))
 
 (defun parse-tests ()
-  (let ((*parser* (new-parser))
-	(*pos* (new-pos "parse-tests")))
-    (with-input-from-string (in "foo bar baz")
-      (parse in))
-    (assert (= (length (forms *parser*)) 3))))
+  (let ((*pos* (new-pos "parse-tests")))
+    (let-forms ()
+      (with-input-from-string (in "foo bar baz")
+	(parse in))
+      (assert (= (length *forms*) 3)))))
 
 (defun env-tests ()
-  (let ((*parser* (new-parser))
-	(*pos* (new-pos "emit-tests")))
-    (with-input-from-string (in "foo")
-      (parse in))
-    (setf (env :foo) 42)
-    (let-code ((nreverse (forms *parser*)))
-      (let-stack ()
-	(exec)
-	(assert (= (pop *stack*) 42))))))
+  (let ((*pos* (new-pos "emit-tests")))
+    (let-forms ()
+      (with-input-from-string (in "foo")
+	(parse in))
+      (setf (env :foo) 42)
+      (let-code ((nreverse *forms*))
+	(let-stack ()
+	  (exec)
+	  (assert (= (pop *stack*) 42)))))))
 
 (defun tests ()
   (parse-tests)

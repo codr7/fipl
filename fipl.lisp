@@ -10,6 +10,10 @@
 (defvar *ops*)
 (defvar *stack*)
 
+(define-symbol-macro *source* (pos-row *pos*))
+(define-symbol-macro *row* (pos-row *pos*))
+(define-symbol-macro *col* (pos-col *pos*))
+
 (defmacro let-env ((&rest in) &body body)
   (labels ((rec (in out)
 	     (if in
@@ -73,15 +77,6 @@
 
 (defun peekc (in)
   (peek-char nil in nil))
-
-(define-symbol-macro *source*
-    (pos-row *pos*))
-
-(define-symbol-macro *row*
-    (pos-row *pos*))
-
-(define-symbol-macro *col*
-    (pos-col *pos*))
 
 (defun skip-ws (in)
   (labels ((rec (found?)

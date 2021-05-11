@@ -48,9 +48,9 @@
   (setf (gethash key *env*) val))
 
 (defstruct pos
-  (source "*n/a*" :type string)
-  (row -1 :type integer)
-  (col -1 :type integer))
+  (source (error "Missing source!") :type string)
+  (row (error "Missing row!") :type integer)
+  (col (error "Missing col!") :type integer))
 
 (defun new-pos (src &key (row 1) (col 1))
   (make-pos :source src :row row :col col))
@@ -107,8 +107,8 @@
 (defmacro emit-op (&body body)
   `(push (lambda () ,@body) *code*))
 
-(defun exec (&key (start-pc 0))
-  (funcall (aref *code* start-pc)))
+(defun exec (&key (start 0))
+  (funcall (aref *code* start)))
 
 (define-symbol-macro *pc*
     (1+ (length *code*)))
@@ -125,11 +125,11 @@
 	((and (functionp val) (not ref?))
 	 (emit-op
 	   (funcall val)
-	   (exec :start-pc pc)))
+	   (exec :start pc)))
 	(t
 	 (emit-op
 	   (push val *stack*)
-	   (exec :start-pc pc)))))))
+	   (exec :start pc)))))))
 
 (defstruct (val-form (:include form))
   (val (error "Missing val!") :type t))
@@ -139,7 +139,7 @@
     (let ((pc *pc*))
       (emit-op
 	(push val *stack*)
-	(exec :start-pc pc)))))
+	(exec :start pc)))))
 
 (defun kw (&rest args)
   (intern (with-output-to-string (out)

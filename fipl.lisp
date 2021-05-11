@@ -25,10 +25,25 @@
   `(let ((*stack* (or ,in (make-array 0 :adjustable t :fill-pointer 0))))
      ,@body))
 
+(defun eparse (msg &rest args)
+  (error (format nil "Parse error in '~a' at row ~a, col ~a: ~a"
+		 *source* *row* *col*
+		 (apply #'format nil msg args))))
+
+(defun ecompile (msg &rest args)
+  (error (format nil "Compile error in '~a' at row ~a, col ~a: ~a"
+		 *source* *row* *col*
+		 (apply #'format nil msg args))))
+
+(defun erun (msg &rest args)
+  (error (format nil "Run error in '~a' at row ~a, col ~a: ~a"
+		 *source* *row* *col*
+		 (apply #'format nil msg args))))
+
 (defstruct pos
-  (source (error "Missing source!") :type string)
-  (row (error "Missing row!") :type integer)
-  (col (error "Missing col!") :type integer))
+  (source (error "Missing source") :type string)
+  (row (error "Missing row") :type integer)
+  (col (error "Missing col") :type integer))
 
 (defun new-pos (src &key (row 1) (col 1))
   (make-pos :source src :row row :col col))
@@ -99,8 +114,8 @@
 
 (defmacro let-ops ((forms) &body body)
   `(let ((*ops* nil))
-     (emit ,forms)
-     (emit-op (*nil-form*))
+     (compile-forms ,forms)
+     (compile-op (*nil-form*))
 
      (let ((*ops* (make-array (length *ops*)
 			      :initial-contents (nreverse *ops*)
@@ -108,19 +123,9 @@
        ,@body)))
 
 (defstruct (id-form (:include form))
-  (id (error "Missing id!") :type keyword))
+  (id (error "Missing id") :type keyword))
 
-(defun ecompile (msg &rest args)
-  (error (format nil "Compile time error in '~a' at row ~a, col ~a: ~a"
-		 *source* *row* *col*
-		 (apply #'format nil msg args))))
-
-(defun erun (msg &rest args)
-  (error (format nil "Run time error in '~a' at row ~a, col ~a: ~a"
-		 *source* *row* *col*
-		 (apply #'format nil msg args))))
-
-(defmacro emit-op ((frm) &body body)
+(defmacro compile-op ((frm) &body body)
   `(push (lambda () (let ((*pos* (form-pos ,frm))) ,@body)) *ops*))
 
 (defun exec (&key (start 0))
@@ -129,7 +134,7 @@
 (define-symbol-macro *pc*
     (1+ (length *ops*)))
 
-(defmethod emit-form ((frm id-form))
+(defmethod compile-form ((frm id-form))
   (let* ((id (id-form-id frm))
 	 (idn (symbol-name id))
 	 (ref? (char= #\& (char idn 0)))
@@ -140,22 +145,22 @@
     (let ((pc *pc*))
       (cond 
 	((and (functionp val) (not ref?))
-	 (emit-op (frm)
+	 (compile-op (frm)
 	   (funcall val)
 	   (exec :start pc)))
 	(t
-	 (emit-op (frm)
+	 (compile-op (frm)
 	   (push-val val)
 	   (exec :start pc)))))))
 
 (defstruct (val-form (:include form))
-  (val (error "Missing val!") :type t))
+  (val (error "Missing val") :type t))
 
-(defmethod emit-form ((frm val-form))
+(defmethod compile-form ((frm val-form))
   (let ((val (val-form-val frm))
 	(pc *pc*)
 	(*pos* (form-pos frm)))
-      (emit-op (frm)
+      (compile-op (frm)
 	(push-val val)
 	(exec :start pc))))
 
@@ -164,11 +169,6 @@
 	    (dolist (a args)
 	      (princ (if (stringp a) (string-upcase a) a) out)))
 	  :keyword))
-
-(defun eparse (pos msg &rest args)
-  (error (format nil "Parse error in '~a' at row ~a, col ~a: ~a"
-		 (pos-source pos) (pos-row pos) (pos-col pos)
-		 (apply #'format nil msg args))))
 
 (defun parse-id (in)
   (let ((c (peekc in)))
@@ -228,8 +228,8 @@
 	       (rec))))
     (rec)))
 
-(defun emit (forms)
-  (dolist (frm forms) (emit-form frm)))
+(defun compile-forms (forms)
+  (dolist (frm forms) (compile-form frm)))
 
 (defmethod dump-val (val out)
   (erun "Dumping not implmeneted for type ~a" (type-of val)))

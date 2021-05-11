@@ -7,7 +7,7 @@
 (defvar *env*)
 (defvar *pos*)
 (defvar *forms*)
-(defvar *code*)
+(defvar *ops*)
 (defvar *stack*)
 
 (defmacro let-pos ((src &key (row 1) (col 1)) &body body)
@@ -29,12 +29,12 @@
        ,@(rec in nil)
        ,@body)))
 
-(defmacro let-code ((forms) &body body)
-  `(let ((*code* nil))
+(defmacro let-ops ((forms) &body body)
+  `(let ((*ops* nil))
      (emit ,forms)
      (emit-op)
 
-     (let ((*code* (make-array (length *code*) :initial-contents (nreverse *code*) :element-type 'function)))
+     (let ((*ops* (make-array (length *ops*) :initial-contents (nreverse *ops*) :element-type 'function)))
        ,@body)))
 
 (defmacro let-stack ((&optional in) &body body)
@@ -105,13 +105,13 @@
 		 (apply #'format nil msg args))))
 
 (defmacro emit-op (&body body)
-  `(push (lambda () ,@body) *code*))
+  `(push (lambda () ,@body) *ops*))
 
 (defun exec (&key (start 0))
-  (funcall (aref *code* start)))
+  (funcall (aref *ops* start)))
 
 (define-symbol-macro *pc*
-    (1+ (length *code*)))
+    (1+ (length *ops*)))
 
 (defmethod emit-form ((frm id-form))
   (let* ((id (id-form-id frm))
@@ -238,7 +238,7 @@
     (let-forms ()
       (with-input-from-string (in "42")
 	(parse in))
-      (let-code ((nreverse *forms*))
+      (let-ops ((nreverse *forms*))
 	(let-stack ()
 	  (exec)
 	  (assert (= (pop *stack*) 42)))))))
@@ -249,7 +249,7 @@
       (with-input-from-string (in "foo")
 	(parse in))
       (let-env (:foo 42)
-	(let-code ((nreverse *forms*))
+	(let-ops ((nreverse *forms*))
 	  (let-stack ()
 	    (exec)
 	    (assert (= (pop *stack*) 42))))))))
@@ -260,7 +260,7 @@
       (with-input-from-string (in "42 cp")
 	(parse in))
       (let-env (:cp #'cp)
-	(let-code ((nreverse *forms*))
+	(let-ops ((nreverse *forms*))
 	  (let-stack ()
 	    (exec)
 	    (assert (= (pop *stack*) 42))
@@ -272,7 +272,7 @@
       (with-input-from-string (in "42 &cp call")
 	(parse in))
       (let-env (:cp #'cp :call #'call)
-	(let-code ((nreverse *forms*))
+	(let-ops ((nreverse *forms*))
 	  (let-stack ()
 	    (exec)
 	    (assert (= (pop *stack*) 42))

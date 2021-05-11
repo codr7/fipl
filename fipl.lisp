@@ -10,6 +10,10 @@
 (defvar *code*)
 (defvar *stack*)
 
+(defmacro let-pos ((src &key (row 1) (col 1)) &body body)
+  `(let ((*pos* (new-pos ,src :row ,row :col ,col)))
+     ,@body))
+
 (defmacro let-forms ((&optional in) &body body)
   `(let ((*forms* ,in))
      ,@body))
@@ -51,8 +55,8 @@
 (defun new-pos (src &key (row 1) (col 1))
   (make-pos :source src :row row :col col))
 
-(defmethod clone ((src pos))
-  (copy-structure src))
+(defmethod clone-pos ()
+  (copy-structure *pos*))
 
 (defun ws? (c)
   (or (char= c #\space) (char= c #\tab) (char= c #\newline)))
@@ -63,7 +67,13 @@
 (defun peekc (in)
   (peek-char nil in nil))
 
-(defun skip-ws (in &key (pos *pos*))
+(define-symbol-macro *row*
+    (pos-row *pos*))
+
+(define-symbol-macro *col*
+    (pos-col *pos*))
+
+(defun skip-ws (in)
   (labels ((rec (found?)
 	     (let ((c (read-char in nil)))
 	       (when c
@@ -71,10 +81,10 @@
 		     (progn
 		       (case c
 			 (#\newline
-			  (incf (pos-row pos))
-			  (setf (pos-col pos) 1))
+			  (incf *row*)
+			  (setf *col* 1))
 			 (otherwise
-			  (incf (pos-col pos))))
+			  (incf *col*)))
 		       (rec t))
 		     (unread-char c in))))
 	     found?))
@@ -131,7 +141,7 @@
 		 (pos-source pos) (pos-row pos) (pos-col pos)
 		 (apply #'format nil msg args))))
 
-(defun parse-id (in &key (pos *pos*))
+(defun parse-id (in)
   (let ((c (peekc in)))
     (unless (and c (alpha-char-p c))
       (return-from parse-id)))
@@ -142,11 +152,11 @@
 		 (if (sep? c)
 		     (unread-char c in)
 		     (progn
-		       (incf (pos-col pos))
+		       (incf *col*)
 		       (write-char c out)
 		       (rec out)))))))
     
-    (let ((start-pos (clone pos))
+    (let ((start-pos (clone-pos))
 	  (s (with-output-to-string (out)
 	       (rec out))))
       (push (make-id-form :pos start-pos :id (kw s)) *forms*)))
@@ -155,7 +165,7 @@
 (defun char-digit (c)
   (- (char-code c) (char-code #\0)))
 
-(defun %parse-integer (in &key (pos *pos*))
+(defun %parse-integer (in)
   (let ((c (peekc in)))
     (unless (and c (digit-char-p c))
       (return-from %parse-integer)))
@@ -164,22 +174,22 @@
 	     (let ((c (read-char in nil)))
 	       (if (and c (digit-char-p c))
 		   (progn
-		     (incf (pos-col pos))
+		     (incf *col*)
 		     (rec base (+ (* out base) (char-digit c))))
 		   (progn
 		     (when c
 		       (unread-char c in))
 		     out)))))
-    (let ((start-pos (clone pos)))
+    (let ((start-pos (clone-pos)))
       (push (make-val-form :pos start-pos :val (rec 10 0)) *forms*)))
   t)
 
 (defparameter *parsers* (list #'skip-ws #'parse-id #'%parse-integer))
 
-(defun parse (in &key (pos *pos*))
+(defun parse (in)
   (labels ((rec ()
 	     (when (find-if (lambda (h)
-			      (funcall h in :pos pos))
+			      (funcall h in))
 			    *parsers*)
 	       (rec))))
     (rec)))
@@ -188,14 +198,14 @@
   (dolist (frm forms) (emit-form frm)))
 
 (defun parse-tests ()
-  (let ((*pos* (new-pos "parse-tests")))
+  (let-pos ("parse-tests")
     (let-forms ()
       (with-input-from-string (in "foo 42 baz")
 	(parse in))
       (assert (= (length *forms*) 3)))))
 
 (defun stack-tests ()
-  (let ((*pos* (new-pos "stack-tests")))
+  (let-pos ("stack-tests")
     (let-forms ()
       (with-input-from-string (in "42")
 	(parse in))
@@ -205,7 +215,7 @@
 	  (assert (= (pop *stack*) 42)))))))
 
 (defun env-tests ()
-  (let ((*pos* (new-pos "emit-tests")))
+  (let-pos ("emit-tests")
     (let-forms ()
       (with-input-from-string (in "foo")
 	(parse in))

@@ -1,14 +1,13 @@
-* switch stack to dynamic vector
-** add %push/%pop
-** update stack access code
-* add repl
-** add dump-val method
+* finish repl
+** check lila
 * add asdf/build
 * add group parser
 * add dot parser
 ** 1 +.2
 * add stack parser [1 2 3]
 * add string parser
+* add signals
+** integrate with conditions
 
 MAX: 10;
 

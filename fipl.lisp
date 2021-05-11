@@ -4,19 +4,11 @@
 
 (in-package fipl)
 
-(defvar *env*)
 (defvar *pos*)
+(defvar *env*)
 (defvar *forms*)
 (defvar *ops*)
 (defvar *stack*)
-
-(defmacro let-pos ((src &key (row 1) (col 1)) &body body)
-  `(let ((*pos* (new-pos ,src :row ,row :col ,col)))
-     ,@body))
-
-(defmacro let-forms ((&optional in) &body body)
-  `(let ((*forms* ,in))
-     ,@body))
 
 (defmacro let-env ((&rest in) &body body)
   (labels ((rec (in out)
@@ -29,23 +21,9 @@
        ,@(rec in nil)
        ,@body)))
 
-(defmacro let-ops ((forms) &body body)
-  `(let ((*ops* nil))
-     (emit ,forms)
-     (emit-op)
-
-     (let ((*ops* (make-array (length *ops*) :initial-contents (nreverse *ops*) :element-type 'function)))
-       ,@body)))
-
 (defmacro let-stack ((&optional in) &body body)
-  `(let ((*stack* ,in))
+  `(let ((*stack* (or ,in (make-array 0 :adjustable t :fill-pointer 0))))
      ,@body))
-
-(defun env (key)
-  (gethash key *env*))
-
-(defun (setf env) (val key)
-  (setf (gethash key *env*) val))
 
 (defstruct pos
   (source (error "Missing source!") :type string)
@@ -55,17 +33,34 @@
 (defun new-pos (src &key (row 1) (col 1))
   (make-pos :source src :row row :col col))
 
+(defparameter *nil-pos* (new-pos "n/a" :row -1 :col -1))
+
 (defmethod clone-pos ()
   (copy-structure *pos*))
 
+(defmacro let-pos ((src &key (row 1) (col 1)) &body body)
+  `(let ((*pos* (new-pos ,src :row ,row :col ,col)))
+     ,@body))
+
+(defun env (key)
+  (gethash key *env*))
+
+(defun (setf env) (val key)
+  (setf (gethash key *env*) val))
+
 (defun ws? (c)
-  (or (char= c #\space) (char= c #\tab) (char= c #\newline)))
+  (or (char= c #\space)
+      (char= c #\tab)
+      (char= c #\newline)))
 
 (defun getc (in)
   (read-char in nil))
 
 (defun peekc (in)
   (peek-char nil in nil))
+
+(define-symbol-macro *source*
+    (pos-row *pos*))
 
 (define-symbol-macro *row*
     (pos-row *pos*))
@@ -96,16 +91,37 @@
 (defstruct form
   (pos nil :type pos))
 
+(defparameter *nil-form* (make-form :pos *nil-pos*))
+
+(defmacro let-forms ((&optional in) &body body)
+  `(let ((*forms* ,in))
+     ,@body))
+
+(defmacro let-ops ((forms) &body body)
+  `(let ((*ops* nil))
+     (emit ,forms)
+     (emit-op (*nil-form*))
+
+     (let ((*ops* (make-array (length *ops*)
+			      :initial-contents (nreverse *ops*)
+			      :element-type 'function)))
+       ,@body)))
+
 (defstruct (id-form (:include form))
   (id (error "Missing id!") :type keyword))
 
-(defun ecompile (pos msg &rest args)
-  (error (format nil "Compile error in '~a' at row ~a, col ~a: ~a"
-		 (pos-source pos) (pos-row pos) (pos-col pos)
+(defun ecompile (msg &rest args)
+  (error (format nil "Compile time error in '~a' at row ~a, col ~a: ~a"
+		 *source* *row* *col*
 		 (apply #'format nil msg args))))
 
-(defmacro emit-op (&body body)
-  `(push (lambda () ,@body) *ops*))
+(defun erun (msg &rest args)
+  (error (format nil "Run time error in '~a' at row ~a, col ~a: ~a"
+		 *source* *row* *col*
+		 (apply #'format nil msg args))))
+
+(defmacro emit-op ((frm) &body body)
+  `(push (lambda () (let ((*pos* (form-pos ,frm))) ,@body)) *ops*))
 
 (defun exec (&key (start 0))
   (funcall (aref *ops* start)))
@@ -117,29 +133,31 @@
   (let* ((id (id-form-id frm))
 	 (idn (symbol-name id))
 	 (ref? (char= #\& (char idn 0)))
-	 (val (env (if ref? (kw (subseq idn 1)) id))))
+	 (val (env (if ref? (kw (subseq idn 1)) id)))
+	 (*pos* (form-pos frm)))
     (unless val
-      (ecompile (form-pos frm) "Unknown id: ~a" id))
+      (ecompile "Unknown id: ~a" id))
     (let ((pc *pc*))
       (cond 
 	((and (functionp val) (not ref?))
-	 (emit-op
+	 (emit-op (frm)
 	   (funcall val)
 	   (exec :start pc)))
 	(t
-	 (emit-op
-	   (push val *stack*)
+	 (emit-op (frm)
+	   (push-val val)
 	   (exec :start pc)))))))
 
 (defstruct (val-form (:include form))
   (val (error "Missing val!") :type t))
 
 (defmethod emit-form ((frm val-form))
-  (let ((val (val-form-val frm)))
-    (let ((pc *pc*))
-      (emit-op
-	(push val *stack*)
-	(exec :start pc)))))
+  (let ((val (val-form-val frm))
+	(pc *pc*)
+	(*pos* (form-pos frm)))
+      (emit-op (frm)
+	(push-val val)
+	(exec :start pc))))
 
 (defun kw (&rest args)
   (intern (with-output-to-string (out)
@@ -170,7 +188,9 @@
     (let ((start-pos (clone-pos))
 	  (s (with-output-to-string (out)
 	       (rec out))))
-      (push (make-id-form :pos start-pos :id (kw s)) *forms*)))
+      (push (make-id-form :pos start-pos
+			  :id (kw s))
+	    *forms*)))
   t)
 
 (defun char-digit (c)
@@ -192,10 +212,13 @@
 		       (unread-char c in))
 		     out)))))
     (let ((start-pos (clone-pos)))
-      (push (make-val-form :pos start-pos :val (rec 10 0)) *forms*)))
+      (push (make-val-form :pos start-pos
+			   :val (rec 10 0))
+	    *forms*)))
   t)
 
-(defparameter *parsers* (list #'skip-ws #'parse-id #'%parse-integer))
+(defparameter *parsers*
+  (list #'skip-ws #'parse-id #'%parse-integer))
 
 (defun parse (in)
   (labels ((rec ()
@@ -208,23 +231,64 @@
 (defun emit (forms)
   (dolist (frm forms) (emit-form frm)))
 
+(defmethod dump-val (val out)
+  (erun "Dumping not implmeneted for type ~a" (type-of val)))
+
+(defun dump-stack (&optional out)
+  (write-char #\[ out)
+  (dotimes (i (length *stack*))
+    (when (not (zerop i))
+      (write-char #\space out))
+    (dump-val (aref *stack* i) out))
+  (write-char #\] out))
+
+(defun push-val (val)
+  (vector-push-extend val *stack*))
+
+(defun pop-val ()
+  (vector-pop *stack*))
+
 (defun d ()
-  (pop *stack*))
+  (pop-val))
 
 (defun cp ()
-  (push (first *stack*) *stack*))
+  (push-val (aref *stack* 0)))
 
 (defun swap ()
-  (rotatef (first *stack*) (second *stack*)))
+  (rotatef (aref *stack* 0) (aref *stack* 1)))
 
 (defun rotl ()
-  (rotatef (first *stack*) (third *stack*) (second *stack*)))
+  (rotatef (aref *stack* 0)
+	   (aref *stack* 2)
+	   (aref *stack* 1)))
 
 (defun rotr ()
-  (rotatef (first *stack*) (second *stack*) (third *stack*)))
+  (rotatef (aref *stack* 0)
+	   (aref *stack* 1)
+	   (aref *stack* 2)))
 
 (defun call ()
-  (funcall (pop *stack*)))
+  (funcall (pop-val)))
+
+(defun repl ()
+  (let-env (:t t
+	    :f nil
+	    
+	    :d #'d
+	    :cp #'cp
+	    :swap #'swap
+	    :rotl #'rotl
+	    :rotr #'rotr
+	    
+	    :call #'call)
+    (let-stack ()
+      (let-pos ("repl")
+	(let-forms ()
+	  (with-input-from-string (in "foo")
+	    (parse in))
+	  (let-ops ((nreverse *forms*))
+	    (exec)
+	    (dump-stack)))))))
 
 (defun parse-tests ()
   (let-pos ("parse-tests")
@@ -241,7 +305,7 @@
       (let-ops ((nreverse *forms*))
 	(let-stack ()
 	  (exec)
-	  (assert (= (pop *stack*) 42)))))))
+	  (assert (= (pop-val) 42)))))))
 
 (defun env-tests ()
   (let-pos ("env-tests")
@@ -252,7 +316,7 @@
 	(let-ops ((nreverse *forms*))
 	  (let-stack ()
 	    (exec)
-	    (assert (= (pop *stack*) 42))))))))
+	    (assert (= (pop-val) 42))))))))
 
 (defun fn-tests ()
   (let-pos ("fn-tests")
@@ -263,8 +327,8 @@
 	(let-ops ((nreverse *forms*))
 	  (let-stack ()
 	    (exec)
-	    (assert (= (pop *stack*) 42))
-	    (assert (= (pop *stack*) 42))))))))
+	    (assert (= (pop-val) 42))
+	    (assert (= (pop-val) 42))))))))
 
 (defun ref-tests ()
   (let-pos ("ref-tests")
@@ -275,8 +339,8 @@
 	(let-ops ((nreverse *forms*))
 	  (let-stack ()
 	    (exec)
-	    (assert (= (pop *stack*) 42))
-	    (assert (= (pop *stack*) 42))))))))
+	    (assert (= (pop-val) 42))
+	    (assert (= (pop-val) 42))))))))
 
 (defun tests ()
   (parse-tests)

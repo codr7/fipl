@@ -1,7 +1,10 @@
-* const propagate away calls on reference
+* switch stack to dynamic vector
+** add %push/%pop
+** update stack access code
 * add group parser
 * add dot parser
 ** 1 +.2
+* add stack parser [1 2 3]
 
 MAX: 10;
 

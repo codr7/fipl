@@ -110,25 +110,36 @@
 (defun exec (&key (start-pc 0))
   (funcall (aref *code* start-pc)))
 
+(define-symbol-macro *pc*
+    (1+ (length *code*)))
+
 (defmethod emit-form ((frm id-form))
   (let* ((id (id-form-id frm))
-	 (val (env id)))
+	 (idn (symbol-name id))
+	 (ref? (char= #\& (char idn 0)))
+	 (val (env (if ref? (kw (subseq idn 1)) id))))
     (unless val
       (ecompile (form-pos frm) "Unknown id: ~a" id))
-    (let ((pc (length *code*)))
-      (emit-op
-	(push val *stack*)
-	(exec :start-pc (1+ pc))))))
+    (let ((pc *pc*))
+      (cond 
+	((and (functionp val) (not ref?))
+	 (emit-op
+	   (funcall val)
+	   (exec :start-pc pc)))
+	(t
+	 (emit-op
+	   (push val *stack*)
+	   (exec :start-pc pc)))))))
 
 (defstruct (val-form (:include form))
   (val (error "Missing val!") :type t))
 
 (defmethod emit-form ((frm val-form))
   (let ((val (val-form-val frm)))
-    (let ((pc (length *code*)))
+    (let ((pc *pc*))
       (emit-op
 	(push val *stack*)
-	(exec :start-pc (1+ pc))))))
+	(exec :start-pc pc)))))
 
 (defun kw (&rest args)
   (intern (with-output-to-string (out)
@@ -143,7 +154,7 @@
 
 (defun parse-id (in)
   (let ((c (peekc in)))
-    (unless (and c (alpha-char-p c))
+    (when (or (not c) (sep? c) (digit-char-p c))
       (return-from parse-id)))
 
   (labels ((rec (out)
@@ -197,6 +208,24 @@
 (defun emit (forms)
   (dolist (frm forms) (emit-form frm)))
 
+(defun d ()
+  (pop *stack*))
+
+(defun cp ()
+  (push (first *stack*) *stack*))
+
+(defun swap ()
+  (rotatef (first *stack*) (second *stack*)))
+
+(defun rotl ()
+  (rotatef (first *stack*) (third *stack*) (second *stack*)))
+
+(defun rotr ()
+  (rotatef (first *stack*) (second *stack*) (third *stack*)))
+
+(defun call ()
+  (funcall (pop *stack*)))
+
 (defun parse-tests ()
   (let-pos ("parse-tests")
     (let-forms ()
@@ -215,7 +244,7 @@
 	  (assert (= (pop *stack*) 42)))))))
 
 (defun env-tests ()
-  (let-pos ("emit-tests")
+  (let-pos ("env-tests")
     (let-forms ()
       (with-input-from-string (in "foo")
 	(parse in))
@@ -225,7 +254,33 @@
 	    (exec)
 	    (assert (= (pop *stack*) 42))))))))
 
+(defun fn-tests ()
+  (let-pos ("fn-tests")
+    (let-forms ()
+      (with-input-from-string (in "42 cp")
+	(parse in))
+      (let-env (:cp #'cp)
+	(let-code ((nreverse *forms*))
+	  (let-stack ()
+	    (exec)
+	    (assert (= (pop *stack*) 42))
+	    (assert (= (pop *stack*) 42))))))))
+
+(defun ref-tests ()
+  (let-pos ("ref-tests")
+    (let-forms ()
+      (with-input-from-string (in "42 &cp call")
+	(parse in))
+      (let-env (:cp #'cp :call #'call)
+	(let-code ((nreverse *forms*))
+	  (let-stack ()
+	    (exec)
+	    (assert (= (pop *stack*) 42))
+	    (assert (= (pop *stack*) 42))))))))
+
 (defun tests ()
   (parse-tests)
   (stack-tests)
-  (env-tests))
+  (env-tests)
+  (fn-tests)
+  (ref-tests))

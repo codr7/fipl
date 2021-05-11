@@ -55,8 +55,7 @@
   (copy-structure src))
 
 (defun ws? (c)
-  (when (or (char= c #\space) (char= c #\tab) (char= c #\newline))
-    c))
+  (or (char= c #\space) (char= c #\tab) (char= c #\newline)))
 
 (defun getc (in)
   (read-char in nil))
@@ -161,17 +160,17 @@
     (unless (and c (digit-char-p c))
       (return-from %parse-integer)))
   
-  (let ((start-pos (clone pos)))
-    (labels ((rec (base out)
-	       (let ((c (read-char in nil)))
-		 (if (and c (digit-char-p c))
-		     (progn
-		       (incf (pos-col pos))
-		       (rec base (+ (* out base) (char-digit c))))
-		     (progn
-		       (when c
-			 (unread-char c in))
-		       out)))))
+  (labels ((rec (base out)
+	     (let ((c (read-char in nil)))
+	       (if (and c (digit-char-p c))
+		   (progn
+		     (incf (pos-col pos))
+		     (rec base (+ (* out base) (char-digit c))))
+		   (progn
+		     (when c
+		       (unread-char c in))
+		     out)))))
+    (let ((start-pos (clone pos)))
       (push (make-val-form :pos start-pos :val (rec 10 0)) *forms*)))
   t)
 

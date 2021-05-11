@@ -1,7 +1,7 @@
 # fipl
 
 ### intro
-fipl is an interpreted language in the spirit of Forth, deeply embedded in Common Lisp.
+fipl is an interpreted language in the spirit of Forth, implemented and embedded in Common Lisp.
 
 ### functions
 Functions are called on reference by default.

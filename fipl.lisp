@@ -133,16 +133,19 @@
 (define-symbol-macro *pc*
     (1+ (length *ops*)))
 
-(defmethod deref-val (val frm pc ref?)
+(defmethod compile-val (val frm pc)
+  (compile-op (frm)
+    (push-val val)
+    (exec :start pc)))
+
+(defmethod deref-val (val frm pc)
   (cond 
-    ((and (functionp val) (not ref?))
+    ((functionp val)
      (compile-op (frm)
        (funcall val)
        (exec :start pc)))
     (t
-     (compile-op (frm)
-       (push-val val)
-       (exec :start pc)))))
+     (compile-val val frm pc))))
   
 (defmethod compile-form ((frm id-form))
   (let* ((id (id-form-id frm))
@@ -152,7 +155,9 @@
 	 (*pos* (form-pos frm)))
     (when (eq val *na*)
       (ecompile "Unknown id: ~a" id))
-    (deref-val val frm *pc* ref?)))
+    (if ref?
+	(compile-val val frm *pc*)
+	(deref-val val frm *pc*))))
 
 (defstruct (val-form (:include form))
   (val (error "Missing val") :type t))

@@ -1,6 +1,6 @@
-* finish repl
-** check lila
 * add asdf/build
+* add macros
+** add and/or
 * add group parser
 * add dot parser
 ** 1 +.2

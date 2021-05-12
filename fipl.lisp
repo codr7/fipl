@@ -1,6 +1,6 @@
 (defpackage fipl
   (:use cl)
-  (:export))
+  (:export repl))
 
 (in-package fipl)
 
@@ -61,8 +61,10 @@
   `(let ((*pos* (new-pos ,src :row ,row :col ,col)))
      ,@body))
 
+(defparameter *na* (gensym))
+
 (defun env (key)
-  (gethash key *env*))
+  (gethash key *env* *na*))
 
 (defun (setf env) (val key)
   (setf (gethash key *env*) val))
@@ -135,7 +137,7 @@
 	 (ref? (char= #\& (char idn 0)))
 	 (val (env (if ref? (kw (subseq idn 1)) id)))
 	 (*pos* (form-pos frm)))
-    (unless val
+    (when (eq val *na*)
       (ecompile "Unknown id: ~a" id))
     (let ((pc *pc*))
       (cond 
@@ -227,9 +229,15 @@
   (dolist (frm forms) (compile-form frm)))
 
 (defmethod dump-val (val out)
-  (erun "Dumping not implmeneted for type ~a" (type-of val)))
+  (print-object val out))
 
-(defun dump-stack (&optional out)
+(defmethod dump-val ((val (eql t)) out)
+  (write-char #\t out))
+
+(defmethod dump-val ((val (eql nil)) out)
+  (write-char #\f out))
+
+(defun dump-stack (&optional (out *standard-output*))
   (write-char #\[ out)
   (dotimes (i (length *stack*))
     (when (not (zerop i))
@@ -266,6 +274,8 @@
   (funcall (pop-val)))
 
 (defun repl ()
+  (format t "Welcome to fipl v1.0~%~%Press Return twice to evaluate~%~%")
+  
   (let-env (:t t
 	    :f nil
 	    
@@ -277,14 +287,28 @@
 	    
 	    :call #'call)
     (let-stack ()
-      (let-pos ("repl")
-	(let-forms ()
-	  (with-input-from-string (in "foo")
-	    (parse in))
-	  (let-ops ((nreverse *forms*))
-	    (exec)
-	    (dump-stack)))))))
-
+      (labels ((read-next ()
+		 (let ((st (with-output-to-string (out)
+			     (labels ((read-ln ()
+					(write-string "  ")
+					(force-output)
+					
+					(let ((ln (read-line)))
+					  (unless (string= ln "")
+					    (write-string ln out)
+					    (read-ln)))))
+			       (read-ln)))))
+		   (let-pos ("repl")
+		     (let-forms ()
+		       (with-input-from-string (sts st)
+			 (parse sts))
+		       (let-ops ((nreverse *forms*))
+			 (exec)
+			 (dump-stack)
+			 (terpri)
+			 (read-next)))))))
+      (read-next)))))
+      
 (defun parse-tests ()
   (let-pos ("parse-tests")
     (let-forms ()

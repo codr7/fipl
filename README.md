@@ -10,7 +10,7 @@ The REPL used for all examples in this document may be launched by evaluating `(
 `t` and `f` may be used to obtain true and false values, `t`is mapped to `T` on the Lisp side and `f` to `NIL`.
 
 ### functions
-Functions are implemented as regular Lisp functions and called on reference by default.
+Functions are called on reference by default.
 
 ```
   42 cp

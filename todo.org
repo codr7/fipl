@@ -1,13 +1,15 @@
-* add asdf/build
+* add asdf/build 
+** like emash
 * add macros
 ** add and/or
+** add conditions to readme
 * add group parser
 * add dot parser
 ** 1 +.2
 * add stack parser [1 2 3]
 * add string parser
-* add signals
-** integrate with conditions
+* add sig
+** implement using Lisp conditions
 
 MAX: 10;
 

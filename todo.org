@@ -1,8 +1,6 @@
-* add asdf/build 
-** like emash
-** extract tests.lisp
-* add macros
-** add and/or
+* add prim
+** add prim struct
+** add and/or prims
 ** add conditions to readme
 * add group parser
 * add dot parser

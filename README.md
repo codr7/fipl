@@ -4,7 +4,15 @@
 fipl is an interpreted language in the spirit of Forth, implemented and embedded in Common Lisp.
 
 ### setup
-The REPL used for all examples in this document may be launched by evaluating `(fipl:repl)` after loading the project.
+The REPL used for all examples in this document may be launched by evaluating `(fipl:repl)` after loading the project,
+or by executing the provided macOS binary.
+
+### build
+Building an executable in the current directory goes something like this:
+
+```
+$ sbcl --eval "(asdf:operate :build-op 'fipl)"
+```
 
 ### booleans
 `t` and `f` may be used to obtain true and false values, `t`is mapped to `T` on the Lisp side and `f` to `NIL`.

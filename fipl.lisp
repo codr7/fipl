@@ -1,8 +1,10 @@
 (defpackage fipl
   (:use cl)
-  (:export repl))
+  (:export repl tests))
 
 (in-package fipl)
+
+(defparameter *version* 1)
 
 (defvar *pos*)
 (defvar *env*)
@@ -274,7 +276,7 @@
   (funcall (pop-val)))
 
 (defun repl ()
-  (format t "Welcome to fipl v1.0~%~%Press Return twice to evaluate~%~%")
+  (format t "Welcome to fipl v~a~%~%Press Return twice to evaluate~%~%" *version*)
   
   (let-env (:t t
 	    :f nil
@@ -308,62 +310,3 @@
 			 (terpri)
 			 (read-next)))))))
       (read-next)))))
-      
-(defun parse-tests ()
-  (let-pos ("parse-tests")
-    (let-forms ()
-      (with-input-from-string (in "foo 42 baz")
-	(parse in))
-      (assert (= (length *forms*) 3)))))
-
-(defun stack-tests ()
-  (let-pos ("stack-tests")
-    (let-forms ()
-      (with-input-from-string (in "42")
-	(parse in))
-      (let-ops ((nreverse *forms*))
-	(let-stack ()
-	  (exec)
-	  (assert (= (pop-val) 42)))))))
-
-(defun env-tests ()
-  (let-pos ("env-tests")
-    (let-forms ()
-      (with-input-from-string (in "foo")
-	(parse in))
-      (let-env (:foo 42)
-	(let-ops ((nreverse *forms*))
-	  (let-stack ()
-	    (exec)
-	    (assert (= (pop-val) 42))))))))
-
-(defun fn-tests ()
-  (let-pos ("fn-tests")
-    (let-forms ()
-      (with-input-from-string (in "42 cp")
-	(parse in))
-      (let-env (:cp #'cp)
-	(let-ops ((nreverse *forms*))
-	  (let-stack ()
-	    (exec)
-	    (assert (= (pop-val) 42))
-	    (assert (= (pop-val) 42))))))))
-
-(defun ref-tests ()
-  (let-pos ("ref-tests")
-    (let-forms ()
-      (with-input-from-string (in "42 &cp call")
-	(parse in))
-      (let-env (:cp #'cp :call #'call)
-	(let-ops ((nreverse *forms*))
-	  (let-stack ()
-	    (exec)
-	    (assert (= (pop-val) 42))
-	    (assert (= (pop-val) 42))))))))
-
-(defun tests ()
-  (parse-tests)
-  (stack-tests)
-  (env-tests)
-  (fn-tests)
-  (ref-tests))

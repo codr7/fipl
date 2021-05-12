@@ -1,16 +1,15 @@
 * add asdf/build 
 ** like emash
+** extract tests.lisp
 * add macros
 ** add and/or
 ** add conditions to readme
 * add group parser
 * add dot parser
-** 1 +.2
+** 1 +. 2
 * add stack parser [1 2 3]
 * add string parser
 * add sig
 ** implement using Lisp conditions
 
-MAX: 10;
-
-fib: cp 1 > (1- cp fib swap 1- cp fib +) if;
+fib: cp >. 1 if. (1- cp fib swap 1- cp +. fib);

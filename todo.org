@@ -1,6 +1,6 @@
 * add prim
-** add prim struct
-** add and/or prims
+** implement or/not like and
+** add cond tests
 ** add conditions to readme
 * add group parser
 * add dot parser

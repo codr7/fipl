@@ -138,16 +138,27 @@
     (push-val val)
     (exec :start pc)))
 
-(defmethod deref-val (val frm pc)
+(defstruct (prim)
+  (id (error "Missing id") :type keyword)
+  (imp (error "Missing imp") :type function))
+
+(defun new-prim (id imp)
+  (make-prim :id id :imp imp))
+
+(defmethod deref-val (val frm args pc)
   (cond 
     ((functionp val)
      (compile-op (frm)
        (funcall val)
-       (exec :start pc)))
+       (exec :start pc))
+     args)
+    ((prim-p val)
+     (funcall (prim-imp val) frm args pc))
     (t
-     (compile-val val frm pc))))
+     (compile-val val frm pc)
+     args)))
   
-(defmethod compile-form ((frm id-form))
+(defmethod compile-form ((frm id-form) args)
   (let* ((id (id-form-id frm))
 	 (idn (symbol-name id))
 	 (ref? (char= #\& (char idn 0)))
@@ -156,19 +167,22 @@
     (when (eq val *na*)
       (ecompile "Unknown id: ~a" id))
     (if ref?
-	(compile-val val frm *pc*)
-	(deref-val val frm *pc*))))
+	(progn
+	  (compile-val val frm *pc*)
+	  args)
+	(deref-val val frm args *pc*))))
 
 (defstruct (val-form (:include form))
   (val (error "Missing val") :type t))
 
-(defmethod compile-form ((frm val-form))
+(defmethod compile-form ((frm val-form) args)
   (let ((val (val-form-val frm))
 	(pc *pc*)
 	(*pos* (form-pos frm)))
       (compile-op (frm)
 	(push-val val)
-	(exec :start pc))))
+	(exec :start pc)))
+  args)
 
 (defun kw (&rest args)
   (intern (with-output-to-string (out)
@@ -235,7 +249,10 @@
     (rec)))
 
 (defun compile-forms (forms)
-  (dolist (frm forms) (compile-form frm)))
+  (labels ((rec (in)
+	     (when in
+	       (rec (compile-form (first in) (rest in))))))
+    (rec forms)))
 
 (defmethod dump-val (val out)
   (print-object val out))
@@ -259,6 +276,34 @@
 
 (defun pop-val ()
   (vector-pop *stack*))
+
+(defmethod t-val? (val)
+  t)
+
+(defmethod t-val? ((val (eql nil)))
+  nil)
+
+(defmethod t-val? ((val integer))
+  (not (zerop val)))
+
+(defun and-imp (frm args pc)
+  (setf args (compile-form (first args) (rest args)))
+
+  (let ((skip-pc))
+    (compile-op (frm)
+      (exec :start (if (t-val? (pop-val)) (1+ pc) skip-pc)))
+    
+    (setf args (compile-form (first args) (rest args)))
+    (setf skip-pc *pc*)
+    args))
+
+(defun or-imp (frm args pc)
+
+  )
+
+(defun not-imp (frm args pc)
+
+  )
 
 (defun d ()
   (pop-val))
@@ -287,6 +332,10 @@
   
   (let-env (:t t
 	    :f nil
+
+	    :and (new-prim :and #'and-imp)
+	    :or (new-prim :or #'or-imp)
+	    :not (new-prim :not #'not-imp)
 	    
 	    :d #'d
 	    :cp #'cp

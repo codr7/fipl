@@ -10,6 +10,7 @@
 (defvar *env*)
 (defvar *forms*)
 (defvar *ops*)
+(defvar *pc*)
 (defvar *stack*)
 
 (define-symbol-macro *source* (pos-row *pos*))
@@ -111,32 +112,29 @@
   `(let ((*forms* ,in))
      ,@body))
 
-(defmacro let-ops ((forms) &body body)
-  `(let ((*ops* nil))
-     (compile-forms ,forms)
-     (compile-op (*nil-form*))
-
-     (let ((*ops* (make-array (length *ops*)
-			      :initial-contents (nreverse *ops*)
-			      :element-type 'function)))
-       ,@body)))
-
 (defstruct (id-form (:include form))
   (id (error "Missing id") :type keyword))
 
-(defmacro compile-op ((frm) &body body)
-  `(push (lambda () (let ((*pos* (form-pos ,frm))) ,@body)) *ops*))
+(defmacro push-op ((frm) &body body)
+  `(push (lambda (*pc*) (let ((*pos* (form-pos ,frm))) ,@body)) *ops*))
+
+(defmacro let-ops ((forms) &body body)
+  `(let ((*ops* nil))
+     (push-op (*nil-form*))
+     (compile-forms ,forms)
+
+     (let ((*ops* (make-array (length *ops*)
+			      :initial-contents *ops*
+			      :element-type 'function)))
+       ,@body)))
 
 (defun exec (&key (start 0))
-  (funcall (aref *ops* start)))
+  (funcall (aref *ops* start) start))
 
-(define-symbol-macro *pc*
-    (1+ (length *ops*)))
-
-(defmethod compile-val (val frm pc)
-  (compile-op (frm)
+(defmethod compile-val (val frm)
+  (push-op (frm)
     (push-val val)
-    (exec :start pc)))
+    (exec :start (1+ *pc*))))
 
 (defstruct (prim)
   (id (error "Missing id") :type keyword)
@@ -145,19 +143,19 @@
 (defun new-prim (id imp)
   (make-prim :id id :imp imp))
 
-(defmethod deref-val (val frm args pc)
+(defmethod deref-val (val frm args)
   (cond 
     ((functionp val)
-     (compile-op (frm)
+     (push-op (frm)
        (funcall val)
-       (exec :start pc))
+       (exec :start (1+ *pc*)))
      args)
     ((prim-p val)
-     (funcall (prim-imp val) frm args pc))
+     (funcall (prim-imp val) frm args))
     (t
-     (compile-val val frm pc)
+     (compile-val val frm)
      args)))
-  
+
 (defmethod compile-form ((frm id-form) args)
   (let* ((id (id-form-id frm))
 	 (idn (symbol-name id))
@@ -168,20 +166,19 @@
       (ecompile "Unknown id: ~a" id))
     (if ref?
 	(progn
-	  (compile-val val frm *pc*)
+	  (compile-val val frm)
 	  args)
-	(deref-val val frm args *pc*))))
+	(deref-val val frm args))))
 
 (defstruct (val-form (:include form))
   (val (error "Missing val") :type t))
 
 (defmethod compile-form ((frm val-form) args)
   (let ((val (val-form-val frm))
-	(pc *pc*)
 	(*pos* (form-pos frm)))
-      (compile-op (frm)
+      (push-op (frm)
 	(push-val val)
-	(exec :start pc)))
+	(exec :start (1+ *pc*))))
   args)
 
 (defun kw (&rest args)
@@ -252,7 +249,7 @@
   (labels ((rec (in)
 	     (when in
 	       (rec (compile-form (first in) (rest in))))))
-    (rec forms)))
+    (rec (reverse forms))))
 
 (defmethod dump-val (val out)
   (print-object val out))
@@ -286,22 +283,23 @@
 (defmethod t-val? ((val integer))
   (not (zerop val)))
 
-(defun and-imp (frm args pc)
+(defun and-imp (frm args)
   (setf args (compile-form (first args) (rest args)))
 
-  (let ((skip-pc))
-    (compile-op (frm)
-      (exec :start (if (t-val? (pop-val)) (1+ pc) skip-pc)))
+  (let ((nskip))
+    (push-op (frm)
+	     (exec :start (+ *pc* (if (t-val? (pop-val)) 1 nskip))))
     
+    (setf nskip (length *ops*))
     (setf args (compile-form (first args) (rest args)))
-    (setf skip-pc *pc*)
+    (setf nskip (- (length *ops*) nskip))
     args))
 
-(defun or-imp (frm args pc)
+(defun or-imp (frm args)
 
   )
 
-(defun not-imp (frm args pc)
+(defun not-imp (frm args)
 
   )
 

@@ -1,10 +1,13 @@
-* add prim
+* finish conditions
 ** implement or/not like and
 ** add cond tests
 ** add conditions to readme
-* add group parser
 * add dot parser
 ** 1 +. 2
+* add func struct like prim
+** add new-func
+*** use in repl
+* add group parser
 * add stack parser [1 2 3]
 * add string parser
 * add sig

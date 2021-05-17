@@ -1,16 +1,25 @@
 * finish conditions
 ** implement or/not like and
-** add cond tests
-** add conditions to readme
+** add tests
+** add branches to readme
 * add dot parser
 ** 1 +. 2
+** add separate dot-parser
+*** switch top two forms and parse first
+** add dot-notation to readme
+* add support for negative numbers to parse-integer
+* add +/-/* /
+** add/sub/mul/div-vals methods
+* add </>/<=/>=
+** add compare-vals method
 * add func struct like prim
 ** add new-func
 *** use in repl
-* add group parser
+* add group parser/form
+* add compile binding syntax
+** add method (const-form?)
+** put ':'-suffix parser before id parser
 * add stack parser [1 2 3]
 * add string parser
-* add sig
-** implement using Lisp conditions
 
-fib: cp >. 1 if. (1- cp fib swap 1- cp +. fib);
+fib: (cp >. 1 if. (1- cp fib swap 1- cp +. fib))

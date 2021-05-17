@@ -5,7 +5,7 @@ fipl is an interpreted language in the spirit of Forth, implemented and embedded
 
 ### setup
 The REPL used for all examples in this document may be launched by evaluating `(fipl:repl)` after loading the project,
-or by executing the provided macOS binary.
+or by using one of the provided binaries.
 
 ### build
 Building an executable in the current directory goes something like this:

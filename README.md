@@ -5,7 +5,7 @@ fipl is an interpreted language in the spirit of Forth, implemented and embedded
 
 ### setup
 The REPL used for all examples in this document may be launched by evaluating `(fipl:repl)` after loading the project,
-or by using one of the provided binaries.
+or by using one of the provided [binaries](https://github.com/codr7/fipl/tree/main/bin).
 
 ### build
 Building an executable in the current directory goes something like this:

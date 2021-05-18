@@ -176,9 +176,9 @@
 (defmethod compile-form ((frm val-form) args)
   (let ((val (val-form-val frm))
 	(*pos* (form-pos frm)))
-      (push-op (frm)
-	(push-val val)
-	(exec :start (1+ *pc*))))
+    (push-op (frm)
+      (push-val val)
+      (exec :start (1+ *pc*))))
   args)
 
 (defun kw (&rest args)
@@ -274,6 +274,9 @@
 (defun pop-val ()
   (vector-pop *stack*))
 
+(defun peek-val ()
+  (aref *stack* (1- (fill-pointer *stack*))))
+
 (defmethod t-val? (val)
   t)
 
@@ -284,24 +287,28 @@
   (not (zerop val)))
 
 (defun and-imp (frm args)
-  (setf args (compile-form (first args) (rest args)))
-
-  (let ((nskip))
-    (push-op (frm)
-	     (exec :start (+ *pc* (if (t-val? (pop-val)) 1 nskip))))
-    
-    (setf nskip (length *ops*))
+  (let ((nskip (length *ops*)))
     (setf args (compile-form (first args) (rest args)))
     (setf nskip (- (length *ops*) nskip))
+    
+    (push-op (frm)
+      (exec :start (+ *pc* (if (t-val? (peek-val))
+			       (progn (pop-val) 1)
+			       nskip))))
+    
     args))
 
 (defun or-imp (frm args)
-
-  )
-
-(defun not-imp (frm args)
-
-  )
+  (let ((nskip (length *ops*)))
+    (setf args (compile-form (first args) (rest args)))
+    (setf nskip (- (length *ops*) nskip))
+    
+    (push-op (frm)
+      (exec :start (+ *pc* (if (t-val? (peek-val))
+			       nskip
+			       (progn (pop-val) 1)))))
+    
+    args))
 
 (defun d ()
   (pop-val))
@@ -333,7 +340,6 @@
 
 	    :and (new-prim :and #'and-imp)
 	    :or (new-prim :or #'or-imp)
-	    :not (new-prim :not #'not-imp)
 	    
 	    :d #'d
 	    :cp #'cp
@@ -363,4 +369,4 @@
 			 (dump-stack)
 			 (terpri)
 			 (read-next)))))))
-      (read-next)))))
+	(read-next)))))

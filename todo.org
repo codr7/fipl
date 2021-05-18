@@ -1,7 +1,6 @@
-* finish conditions
-** implement or/not like and
-** add tests
-** add branches to readme
+* add define-test macro
+** list env/cases
+** each case is (code stack)
 * add dot parser
 ** 1 +. 2
 ** add separate dot-parser

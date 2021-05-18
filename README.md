@@ -14,8 +14,24 @@ Building an executable in the current directory goes something like this:
 $ sbcl --eval "(asdf:operate :build-op 'fipl)"
 ```
 
-### booleans
+### logics
 `t` and `f` may be used to obtain true and false values, `t`is mapped to `T` on the Lisp side and `f` to `NIL`.
+Every value has a boolean representation, for integers 0 is `f` and everything else `t`.
+
+#### operators
+The usual short circuiting logic operators are provided.
+
+```
+  t 42 and
+
+[42]
+```
+
+```
+  f 42 or
+
+[42]
+```
 
 ### functions
 Functions are called on reference by default.

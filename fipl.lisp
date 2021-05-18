@@ -317,7 +317,8 @@
   (push-val (aref *stack* 0)))
 
 (defun swap ()
-  (rotatef (aref *stack* 0) (aref *stack* 1)))
+  (let ((i (1- (fill-pointer *stack*))))
+    (rotatef (aref *stack* i) (aref *stack* (1- i)))))
 
 (defun rotl ()
   (rotatef (aref *stack* 0)
